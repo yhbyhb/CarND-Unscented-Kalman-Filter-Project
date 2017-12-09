@@ -58,9 +58,6 @@ UKF::UKF() {
   //set state dimension
   n_x_ = 5;
   
-  //define spreading parameter
-  lambda_ = 3 - n_x_;
-  
   //set augmented dimension
   n_aug_ = 7;
   
@@ -152,15 +149,17 @@ void UKF::Prediction(double delta_t) {
   */
   /// Generating sigma points
   
-  //create sigma point matrix
-  MatrixXd Xsig = MatrixXd(n_x_, 2 * n_x_ + 1);
   
   //calculate square root of P
   MatrixXd A = P_.llt().matrixL();
   
-  Xsig.col(0) = x_;
-  
+  //define spreading parameter
+  lambda_ = 3 - n_x_;
   double sqrt_lambda_plus_n_x = sqrt(lambda_ + n_x_);
+  
+  //create sigma point matrix
+  MatrixXd Xsig = MatrixXd(n_x_, 2 * n_x_ + 1);
+  Xsig.col(0) = x_;
   for (int i = 0; i < n_x_; i++)
   {
     Xsig.col(i+1)        = x_ + sqrt_lambda_plus_n_x * A.col(i);
@@ -171,13 +170,6 @@ void UKF::Prediction(double delta_t) {
   
   //create augmented mean vector
   VectorXd x_aug = VectorXd(n_aug_);
-  
-  //create augmented state covariance
-  MatrixXd P_aug = MatrixXd(n_aug_, n_aug_);
-  
-  //create sigma point matrix
-  MatrixXd Xsig_aug = MatrixXd(n_aug_, 2 * n_aug_ + 1);
-  
   //create augmented mean state
   x_aug.head(n_x_) = x_;
   x_aug(5) = 0;
@@ -188,20 +180,26 @@ void UKF::Prediction(double delta_t) {
   Q << std_a_ * std_a_, 0,
        0,               std_yawdd_ * std_yawdd_;
   
+  //create augmented state covariance
+  MatrixXd P_aug = MatrixXd(n_aug_, n_aug_);
+  P_aug.fill(0.0);
   P_aug.topLeftCorner(n_x_, n_x_) = P_;
   P_aug.block<2,2>(5,5) = Q;
   
   //create square root matrix
-  A = P_aug.llt().matrixL();
+  MatrixXd L = P_aug.llt().matrixL();
+  
+  //define spreading parameter
+  lambda_ = 3 - n_aug_;
+  double sqrt_lambda_plus_n_aug = sqrt(lambda_ + n_aug_);
   
   //create augmented sigma points
+  MatrixXd Xsig_aug = MatrixXd(n_aug_, 2 * n_aug_ + 1);
   Xsig_aug.col(0) = x_aug;
-  
-  double sqrt_lambda_plus_n_aug = sqrt(lambda_ + n_aug_);
   for (int i = 0; i < n_aug_; i++)
   {
-    Xsig_aug.col(i+1)          = x_aug + sqrt_lambda_plus_n_aug * A.col(i);
-    Xsig_aug.col(i+1 + n_aug_) = x_aug - sqrt_lambda_plus_n_aug * A.col(i);
+    Xsig_aug.col(i+1)          = x_aug + sqrt_lambda_plus_n_aug * L.col(i);
+    Xsig_aug.col(i+1 + n_aug_) = x_aug - sqrt_lambda_plus_n_aug * L.col(i);
   }
   
   /// Sigma point prediction
@@ -305,12 +303,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   //create matrix for sigma points in measurement space
   MatrixXd Zsig = MatrixXd(n_z, 2 * n_aug_ + 1);
   
-  //mean predicted measurement
-  VectorXd z_pred = VectorXd(n_z);
-  
-  //measurement covariance matrix S
-  MatrixXd S = MatrixXd(n_z,n_z);
-  
   //transform sigma points into measurement space
   for (int i = 0; i < 2 * n_aug_ + 1; ++i)
   {
@@ -321,22 +313,24 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
     Zsig.col(i) << px, py;
   }
   
-  //calculate mean predicted measurement
+  //mean predicted measurement
+  VectorXd z_pred = VectorXd(n_z);
   z_pred.fill(0.0);
   for (int i = 0; i < 2 * n_aug_ + 1; ++i)
   {
     z_pred += weights_(i) * Zsig.col(i);
   }
   
-  //calculate measurement covariance matrix S
+  //measurement covariance matrix S
+  MatrixXd S = MatrixXd(n_z,n_z);
   S.fill(0.0);
   for (int i = 0; i < 2 * n_aug_ + 1; ++i)
   {
     VectorXd diff = Zsig.col(i) - z_pred;
-    
     S += weights_(i) * diff * diff.transpose();
   }
   
+  //add measurement noise covariance matrix
   MatrixXd R = MatrixXd(n_z, n_z);
   R << std_laspx_ * std_laspx_, 0,
        0,                       std_laspy_ * std_laspy_;
@@ -373,6 +367,18 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   //NIS
   double sigma = z_diff.transpose() * S_inverse * z_diff;
   std::cout << "Lidar NIS : " << sigma << std::endl;
+  if (isnan(sigma))
+  {
+    std::cout << "Xsig_pred_ = " << Xsig_pred_ << std::endl;
+    std::cout << "z = " << z << std::endl;
+    std::cout << "weights_ = " << weights_ << std::endl;
+    std::cout << "Zsig = " << Zsig << std::endl;
+    std::cout << "z_pred = " << z_diff << std::endl;
+    std::cout << "z_diff = " << z_diff << std::endl;
+    std::cout << "S_inverse = " << S_inverse << std::endl;
+    std::cout << z_diff << std::endl;
+    std::cout << S_inverse << std::endl;
+  }
 }
 
 /**
@@ -399,16 +405,11 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   
   //create matrix for sigma points in measurement space
   MatrixXd Zsig = MatrixXd(n_z, 2 * n_aug_ + 1);
-  
-  //mean predicted measurement
-  VectorXd z_pred = VectorXd(n_z);
-  
-  //measurement covariance matrix S
-  MatrixXd S = MatrixXd(n_z,n_z);
-  
+
   //transform sigma points into measurement space
   for (int i = 0; i < 2 * n_aug_ + 1; ++i)
   {
+    // extract values for better readibility
     VectorXd sig = Xsig_pred_.col(i);
     double px = sig(0);
     double py = sig(1);
@@ -419,20 +420,24 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     double phi = atan2(py, px);
     double rho_dot = (px * cos(yaw) * v + py * sin(yaw) * v) / rho;
     
+    // measurement model
     Zsig.col(i) << rho, phi, rho_dot;
   }
   
-  //calculate mean predicted measurement
+  //mean predicted measurement
+  VectorXd z_pred = VectorXd(n_z);
   z_pred.fill(0.0);
   for (int i = 0; i < 2 * n_aug_ + 1; ++i)
   {
     z_pred += weights_(i) * Zsig.col(i);
   }
   
-  //calculate measurement covariance matrix S
+  //measurement covariance matrix S
+  MatrixXd S = MatrixXd(n_z,n_z);
   S.fill(0.0);
   for (int i = 0; i < 2 * n_aug_ + 1; ++i)
   {
+    //residual
     VectorXd diff = Zsig.col(i) - z_pred;
     
     //angle normalization
@@ -442,7 +447,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     S += weights_(i) * diff * diff.transpose();
   }
   
-  // Measurement noise covariance
+  //add measurement noise covariance matrix
   MatrixXd R = MatrixXd(n_z, n_z);
   R << std_radr_ * std_radr_, 0,                         0,
        0,                     std_radphi_ * std_radphi_, 0,
@@ -457,7 +462,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   //calculate cross correlation matrix
   Tc.fill(0.0);
   for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //2n+1 simga points
-    
     //residual
     VectorXd z_diff = Zsig.col(i) - z_pred;
     //angle normalization
@@ -490,5 +494,18 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   //NIS
   double sigma = z_diff.transpose() * S_inverse * z_diff;
+
   std::cout << "Radar NIS : " << sigma << std::endl;
+  if (isnan(sigma))
+  {
+    std::cout << "Xsig_pred_ = " << Xsig_pred_ << std::endl;
+    std::cout << "z = " << z << std::endl;
+    std::cout << "weights_ = " << weights_ << std::endl;
+    std::cout << "Zsig = " << Zsig << std::endl;
+    std::cout << "z_pred = " << z_diff << std::endl;
+    std::cout << "z_diff = " << z_diff << std::endl;
+    std::cout << "S_inverse = " << S_inverse << std::endl;
+    cout << "x_ = " << x_ << endl;
+    cout << "P_ = " << P_ << endl;
+  }
 }
