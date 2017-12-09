@@ -1,4 +1,5 @@
 #include "ukf.h"
+#include "tools.h"
 #include "Eigen/Dense"
 #include <iostream>
 
@@ -147,6 +148,10 @@ void UKF::Prediction(double delta_t) {
   Complete this function! Estimate the object's location. Modify the state
   vector, x_. Predict sigma points, the state, and the state covariance matrix.
   */
+
+  //Tool for normalizing angle
+  Tools tools;
+
   /// Generating sigma points
   
   //calculate square root of P
@@ -271,8 +276,7 @@ void UKF::Prediction(double delta_t) {
     VectorXd diff = (Xsig_pred_.col(i) - x_);
     
     //angle normalization
-    while (diff(3)> M_PI) diff(3)-=2.*M_PI;
-    while (diff(3)<-M_PI) diff(3)+=2.*M_PI;
+    tools.NormalizeAngle(diff(3));
     
     P_ += weights_(i) * diff * diff.transpose();
   }
@@ -380,6 +384,8 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the radar NIS.
   */
+  //Tool for normalizing angle
+  Tools tools;
 
   // Predict radar measurement
   int n_z = 3;
@@ -427,8 +433,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     VectorXd diff = Zsig.col(i) - z_pred;
     
     //angle normalization
-    while (diff(1)> M_PI) diff(1)-=2.*M_PI;
-    while (diff(1)<-M_PI) diff(1)+=2.*M_PI;
+    tools.NormalizeAngle(diff(1));
     
     S += weights_(i) * diff * diff.transpose();
   }
@@ -451,14 +456,12 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     //residual
     VectorXd z_diff = Zsig.col(i) - z_pred;
     //angle normalization
-    while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
-    while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
+    tools.NormalizeAngle(z_diff(1));
     
     // state difference
     VectorXd x_diff = Xsig_pred_.col(i) - x_;
     //angle normalization
-    while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
-    while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
+    tools.NormalizeAngle(x_diff(3));
     
     Tc += weights_(i) * x_diff * z_diff.transpose();
   }
@@ -471,8 +474,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   VectorXd z_diff = z - z_pred;
   
   //angle normalization
-  while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
-  while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
+  tools.NormalizeAngle(z_diff(1));
   
   //update state mean and covariance matrix
   x_ = x_ + K * z_diff;
