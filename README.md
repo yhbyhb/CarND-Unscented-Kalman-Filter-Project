@@ -26,11 +26,11 @@ Here is my RMSE result and it satisfies accuracy criteria of [project rubric](ht
 
 ### NIS(Normalized Innovation Squared)
 
-![alt text][nis]
-
 Final tuned values of the process noise model parameters as followed.
 
  - longitudinal acceleration in m/s^2 : `std_a_ = 2;`
  - yaw acceleration in rad/s^2 : `std_yawdd_ = 0.785; // 0.25 * pi`
 
 Here is plot of NIS Radar. It shows consistent result.
+
+![alt text][nis]
