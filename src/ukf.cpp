@@ -149,7 +149,6 @@ void UKF::Prediction(double delta_t) {
   */
   /// Generating sigma points
   
-  
   //calculate square root of P
   MatrixXd A = P_.llt().matrixL();
   
@@ -350,7 +349,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
     // state difference
     VectorXd x_diff = Xsig_pred_.col(i) - x_;
     
-    Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
+    Tc += weights_(i) * x_diff * z_diff.transpose();
   }
   
   //Kalman gain K;
@@ -365,20 +364,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   P_ = P_ - K * S * K.transpose();
   
   //NIS
-  double sigma = z_diff.transpose() * S_inverse * z_diff;
-  std::cout << "Lidar NIS : " << sigma << std::endl;
-  if (isnan(sigma))
-  {
-    std::cout << "Xsig_pred_ = " << Xsig_pred_ << std::endl;
-    std::cout << "z = " << z << std::endl;
-    std::cout << "weights_ = " << weights_ << std::endl;
-    std::cout << "Zsig = " << Zsig << std::endl;
-    std::cout << "z_pred = " << z_diff << std::endl;
-    std::cout << "z_diff = " << z_diff << std::endl;
-    std::cout << "S_inverse = " << S_inverse << std::endl;
-    std::cout << z_diff << std::endl;
-    std::cout << S_inverse << std::endl;
-  }
+  //std::cout << "Lidar NIS : " << z_diff.transpose() * S_inverse * z_diff; << std::endl;
 }
 
 /**
@@ -474,7 +460,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
     while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
     
-    Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
+    Tc += weights_(i) * x_diff * z_diff.transpose();
   }
   
   //Kalman gain K;
@@ -493,19 +479,5 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   P_ = P_ - K * S * K.transpose();
 
   //NIS
-  double sigma = z_diff.transpose() * S_inverse * z_diff;
-
-  std::cout << "Radar NIS : " << sigma << std::endl;
-  if (isnan(sigma))
-  {
-    std::cout << "Xsig_pred_ = " << Xsig_pred_ << std::endl;
-    std::cout << "z = " << z << std::endl;
-    std::cout << "weights_ = " << weights_ << std::endl;
-    std::cout << "Zsig = " << Zsig << std::endl;
-    std::cout << "z_pred = " << z_diff << std::endl;
-    std::cout << "z_diff = " << z_diff << std::endl;
-    std::cout << "S_inverse = " << S_inverse << std::endl;
-    cout << "x_ = " << x_ << endl;
-    cout << "P_ = " << P_ << endl;
-  }
+  //std::cout << "Radar NIS : " << z_diff.transpose() * S_inverse * z_diff << std::endl;
 }
