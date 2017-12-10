@@ -213,13 +213,13 @@ void UKF::Prediction(double delta_t) {
   for (int i = 0; i < 2 * n_aug_ + 1; i++)
   {
     //extract values for better readability
-    double p_x = Xsig_aug(0,i);
-    double p_y = Xsig_aug(1,i);
-    double v = Xsig_aug(2,i);
-    double yaw = Xsig_aug(3,i);
-    double yawd = Xsig_aug(4,i);
-    double nu_a = Xsig_aug(5,i);
-    double nu_yawdd = Xsig_aug(6,i);
+    const double p_x = Xsig_aug(0,i);
+    const double p_y = Xsig_aug(1,i);
+    const double v = Xsig_aug(2,i);
+    const double yaw = Xsig_aug(3,i);
+    const double yawd = Xsig_aug(4,i);
+    const double nu_a = Xsig_aug(5,i);
+    const double nu_yawdd = Xsig_aug(6,i);
     
     //predicted state values
     double px_p, py_p;
@@ -256,12 +256,8 @@ void UKF::Prediction(double delta_t) {
   
   // Predicted mean and covariance
   //set weights
+  weights_.fill(0.5 / (lambda_ + n_aug_));
   weights_(0) = lambda_ / (double)(lambda_ + n_aug_);
-  double weight = 1 / ((double)2 * (lambda_ + n_aug_));
-  for (int i = 1; i < 2 * n_aug_ + 1; i++)
-  {
-    weights_(i) = weight;
-  }
   
   //predict state mean
   x_.fill(0.0);
